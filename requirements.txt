@@ -1,0 +1,7 @@
+pytubefix
+google-generativeai
+playwright
+shutil
+smtplib
+email
+requests
