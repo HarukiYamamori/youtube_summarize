@@ -8,8 +8,8 @@ logger = getLogger(__name__)
 
 
 def send_email(receiver_address, channel_name, body, is_html=True):
-    sender_email = "yamaharu0205@gmail.com"
-    password = "mdfa gcem vgiy dmwd"  # アプリケーションパスワードを使うことをお勧めします
+    sender_email = "your_email@gmail.com"
+    password = "application password"  # アプリケーションパスワードを使うことをお勧めします
 
     subject = f"【Today's news】{channel_name}"
 
