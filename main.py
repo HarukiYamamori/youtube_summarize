@@ -42,9 +42,9 @@ for channel_url in urls_array:
         audiofile_path = download_audio(video_info.get("link"))
 
         # 文字起こし & 要約
-        news_summary = summary_response(transcript(audiofile_path), video_info.get("title"), video_info.get("link"))
+        result = summary_response(transcript(audiofile_path), video_info.get("title"), video_info.get("link"))
 
-        msg += news_summary
+        msg += result.summary
         msg += '<hr>'
 
     for address in email_array:

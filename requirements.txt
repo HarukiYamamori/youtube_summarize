@@ -1,7 +1,5 @@
-pytubefix
-google-generativeai
+yt-dlp
+google-genai
 playwright
-shutil
-smtplib
-email
 requests
+python-dotenv
