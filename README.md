@@ -10,9 +10,99 @@ GCP環境にて日次で定期実行され、日々の情報収集や動画要�
 - yt-dlp（YouTube動画のダウンロード）
 - Google Gemini 2.0 Flash（文字起こし・翻訳・要約）
 - Gmail API（メール送信）
+- python-dotenv（環境変数管理）
 
 ### 実行環境
 Google Cloud Platform（GCP）上のインスタンスで日次スケジューリング実行
+
+## 環境変数の設定
+
+### 方法1: .envファイルを使用（推奨）
+
+プロジェクトルートに`.env`ファイルを作成し、以下のように設定してください：
+
+```env
+GOOGLE_API_KEY=your-google-api-key-here
+CHANNEL_URLS=https://www.youtube.com/@CNN, https://www.youtube.com/@BBC
+EMAIL_ADDRESSES=sample1@gmail.com, sample2@gmail.com
+GMAIL_ADDRESS=your-email@gmail.com
+GMAIL_PASSWORD=your-app-password-here
+MAIL_TITLE=mail-title
+```
+
+**注意**: `.env`ファイルは`.gitignore`に追加して、Gitにコミットしないようにしてください。
+
+### 方法2: システム環境変数として設定
+
+ターミナルで以下のコマンドを実行：
+
+```bash
+export GOOGLE_API_KEY="your-google-api-key-here"
+export CHANNEL_URLS="https://www.youtube.com/@CNN, https://www.youtube.com/@BBC"
+export EMAIL_ADDRESSES="sample1@gmail.com, sample2@gmail.com"
+export GMAIL_ADDRESS="your-email@gmail.com"
+export GMAIL_PASSWORD="your-app-password-here"
+export MAIL_TITLE="mail-title"
+```
+
+### 環境変数の説明
+
+- `GOOGLE_API_KEY`: Google Gemini APIのキー（必須）
+- `CHANNEL_URLS`: YouTubeチャンネルURL（カンマ区切り、必須）
+- `EMAIL_ADDRESSES`: 送信先メールアドレス（カンマ区切り、必須）
+- `GMAIL_ADDRESS`: 送信元Gmailアドレス（必須）
+- `GMAIL_PASSWORD`: Gmailアプリケーションパスワード（必須）
+- `MAIL_TITLE`: メールのタイトルに使用する文字列（オプション）
+
+## セットアップ
+
+### 1. 依存パッケージのインストール
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. ffmpegのインストール
+
+本システムは音声ファイルをMP3形式に変換するためにffmpegを使用します。以下のコマンドでインストールしてください：
+
+**macOS (Homebrew):**
+```bash
+brew install ffmpeg
+```
+
+**Linux (apt):**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**Linux (yum):**
+```bash
+sudo yum install ffmpeg
+```
+
+**Windows:**
+[ffmpeg公式サイト](https://ffmpeg.org/download.html)からダウンロードしてインストールするか、[chocolatey](https://chocolatey.org/)を使用：
+```bash
+choco install ffmpeg
+```
+
+### 3. Playwrightブラウザのインストール
+
+本システムはPlaywrightを使用してYouTubeチャンネル情報を取得します。初回実行前に、以下のコマンドでPlaywrightのブラウザをインストールしてください：
+
+```bash
+playwright install
+```
+
+または、Chromiumのみをインストールする場合：
+
+```bash
+playwright install chromium
+```
+
+**注意**: 初回インストール時やPlaywrightを更新した後は、必ずこのコマンドを実行してください。ブラウザがインストールされていないと、実行時にエラーが発生します。
 
 ## 処理の流れ
 1. **YouTube動画の取得**<br>`yt_dlp`を使用して、指定URLの動画をMP3形式でダウンロード
@@ -40,12 +130,18 @@ Gmail経由でメール送信を行うためには、「アプリパスワード
 - 「生成」をクリックすると、16桁のアプリパスワードが表示されます
 
 ### アプリパスワードの利用
-取得したパスワードは、`gmail_sender.py`内で定義
+取得したパスワードは、`.env`ファイルに`GMAIL_PASSWORD`として設定してください：
 
-<pre><code>
-sender_email = "your_email@gmail.com"
-password = "16-digit application password"
-</code></pre>
+```env
+GMAIL_ADDRESS=your_email@gmail.com
+GMAIL_PASSWORD=16-digit application password
+```
+
+または、環境変数として設定：
+```bash
+export GMAIL_ADDRESS="your_email@gmail.com"
+export GMAIL_PASSWORD="16-digit application password"
+```
 
 ## 実行タイミング
 GCPインスタンス上で 日次定期実行（Cloud Scheduler + Cloud Functions）
