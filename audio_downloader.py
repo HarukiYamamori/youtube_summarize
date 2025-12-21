@@ -20,6 +20,16 @@ def download_audio(url):
     os.makedirs("data", exist_ok=True)
 
     # yt-dlp 設定
+    # ffmpegのパスを環境変数から取得、なければ自動検出
+    import shutil
+    ffmpeg_path = shutil.which('ffmpeg')
+    if not ffmpeg_path:
+        # 一般的なパスを試す
+        for path in ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg']:
+            if os.path.exists(path):
+                ffmpeg_path = path
+                break
+    
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': audio_path,
@@ -29,8 +39,13 @@ def download_audio(url):
             'preferredquality': '192',
         }],
         'noplaylist': True,  # プレイリストのダウンロードを防ぐ
-        'ffmpeg_location': '/usr/bin/ffmpeg',
     }
+    
+    # ffmpegが見つかった場合のみ設定
+    if ffmpeg_path:
+        ydl_opts['ffmpeg_location'] = ffmpeg_path
+    else:
+        logger.warning("ffmpegが見つかりません。音声変換が失敗する可能性があります。")
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
