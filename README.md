@@ -56,13 +56,35 @@ export MAIL_TITLE="mail-title"
 
 ## セットアップ
 
-### 1. 依存パッケージのインストール
+### 1. 仮想環境の作成
+
+シェルスクリプトを使用してPython 3.12の仮想環境を作成します：
+
+```bash
+./make-venv.sh
+```
+
+スクリプト実行後、表示されたコマンドで仮想環境を有効化してください：
+
+```bash
+source venv/bin/activate
+```
+
+仮想環境が有効化されると、プロンプトに `(venv)` が表示されます。
+
+**手動で作成する場合：**
+```bash
+python3.12 -m venv venv
+source venv/bin/activate
+```
+
+### 2. 依存パッケージのインストール
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. ffmpegのインストール
+### 3. ffmpegのインストール
 
 本システムは音声ファイルをMP3形式に変換するためにffmpegを使用します。以下のコマンドでインストールしてください：
 
@@ -88,7 +110,7 @@ sudo yum install ffmpeg
 choco install ffmpeg
 ```
 
-### 3. Playwrightブラウザのインストール
+### 4. Playwrightブラウザのインストール
 
 本システムはPlaywrightを使用してYouTubeチャンネル情報を取得します。初回実行前に、以下のコマンドでPlaywrightのブラウザをインストールしてください：
 
