@@ -1,4 +1,3 @@
-import configparser
 import os
 import yt_dlp
 from urllib.parse import urlparse, parse_qs
@@ -6,10 +5,6 @@ from logging import getLogger, basicConfig, INFO
 
 basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = getLogger(__name__)
-
-# 設定ファイルの読み込み（必要ならば config.ini を使う）
-config = configparser.ConfigParser(interpolation=None)
-config.read("config.ini")
 
 def get_video_id(url):
     """YouTubeのURLから動画IDを取得"""
