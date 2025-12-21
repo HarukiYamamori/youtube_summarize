@@ -1,6 +1,7 @@
-import configparser
+import os
 import sys
 from logging import basicConfig, INFO, getLogger
+from dotenv import load_dotenv
 
 from audio_downloader import download_audio
 from audio_transcript import summary_response, transcript
@@ -8,21 +9,24 @@ from crawl_videos import fetch_channel_data
 from file_handler import delete_all_files
 from gmail_sender import send_email
 
+# .envファイルから環境変数を読み込む
+load_dotenv()
+
 basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = getLogger(__name__)
 
-# メールアドレスなどのsetting
-args = sys.argv[1:]
+# 環境変数から設定を取得
+channel_urls = os.getenv('CHANNEL_URLS', '')
+email_addresses = os.getenv('EMAIL_ADDRESSES', '')
 
-if not args:
-    logger.error("エラー: 設定名が指定されていません")
+if not channel_urls:
+    logger.error("エラー: CHANNEL_URLS環境変数が設定されていません")
     sys.exit(1)
 
-config = configparser.ConfigParser(interpolation=None)
-config.read("config.ini")
+if not email_addresses:
+    logger.error("エラー: EMAIL_ADDRESSES環境変数が設定されていません")
+    sys.exit(1)
 
-channel_urls = config.get(args[0], 'channel_urls')
-email_addresses = config.get(args[0], 'email_addresses')
 urls_array = [item.strip() for item in channel_urls.split(",")]
 email_array = [item.strip() for item in email_addresses.split(",")]
 

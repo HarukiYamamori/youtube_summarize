@@ -8,13 +8,13 @@ from audio_downloader import download_audio
 basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = getLogger(__name__)
 
-
-config = configparser.ConfigParser(interpolation=None)
-config.read("config.ini")
-
-GOOGLE_API_KEY = config.get('ai_setting', 'GOOGLE_API_KEY')
-genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel("gemini-2.0-flash-001")
+# 環境変数から取得
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+if not GOOGLE_API_KEY:
+    logger.error("エラー: GOOGLE_API_KEY環境変数が設定されていません")
+    raise ValueError("GOOGLE_API_KEY環境変数が設定されていません")
+client = genai.Client(api_key=GOOGLE_API_KEY)
+model = "gemini-2.5-flash"
 
 def transcript(audio_path):
     logger.info(f"Transcribe file:{audio_path}")
