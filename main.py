@@ -31,25 +31,41 @@ urls_array = [item.strip() for item in channel_urls.split(",")]
 email_array = [item.strip() for item in email_addresses.split(",")]
 
 for channel_url in urls_array:
-    logger.info("process start for %s", channel_url)
-    videos_info, channel_name = fetch_channel_data(f"{channel_url}/videos")
-
-    msg = ''
-
-    for i in range(len(videos_info)):
-        video_info = videos_info[i]
+    if "/watch?" in channel_url:
+        msg = ''
         # audioファイル(mp3)ダウンロード
-        audiofile_path = download_audio(video_info.get("link"))
+        audiofile_path = download_audio(channel_url)
 
         # 文字起こし & 要約
-        result = summary_response(transcript(audiofile_path), video_info.get("title"), video_info.get("link"))
+        result = summary_response(transcript(audiofile_path), None, channel_url)
 
         msg += result.summary
         msg += '<hr>'
 
-    for address in email_array:
-        # メール送信
-        send_email(address, channel_name, msg)
-        print(f'send_mail: {address}')
+        for address in email_array:
+            # メール送信
+            send_email(address, "", msg)
+            print(f'send_mail: {address}')
+
+    else:
+        logger.info("process start for %s", channel_url)
+        videos_info, channel_name = fetch_channel_data(f"{channel_url}/videos")
+
+        for i in range(len(videos_info)):
+            msg = ''
+            video_info = videos_info[i]
+            # audioファイル(mp3)ダウンロード
+            audiofile_path = download_audio(video_info.get("link"))
+
+            # 文字起こし & 要約
+            result = summary_response(transcript(audiofile_path), video_info.get("title"), video_info.get("link"))
+
+            msg += result.summary
+            msg += '<hr>'
+
+        for address in email_array:
+            # メール送信
+            send_email(address, channel_name, msg)
+            print(f'send_mail: {address}')
 
     delete_all_files()
