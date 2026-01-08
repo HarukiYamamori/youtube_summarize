@@ -49,7 +49,7 @@ def summary_response(txt, title, link):
     logger.info("Summarize")
 
     class Result(BaseModel):
-        summary: str = Field(description="要約")
+        summary: str = Field(description="HTML形式の要約本文")
         genre: str = Field(description="ジャンル")
 
     prompt = f"""
@@ -58,6 +58,7 @@ def summary_response(txt, title, link):
         【出力形式の要件】
         1. HTMLの構造は以下の通りにしてください：
         - <h1>タグ: 動画タイトルをリンクとして表示（リンク先: {link}）
+        - なお、タイトルがない場合は、文章から動画タイトルを自由に生成してください。
         - <div class="genre">タグ: ジャンルを表示（形式: 「ジャンル: [ジャンル名]」）
         - <div class="summary">タグ: 要約内容を表示
 
@@ -96,7 +97,7 @@ def summary_response(txt, title, link):
         - その他
 
         【出力例】
-        <h1><a href="{link}">動画タイトル</a></h1>
+        <h1><a href="{link}">動画タイトル（タイトルがない場合は、文章から動画タイトルを自由に生成してください。）</a></h1>
         <div class="genre">ジャンル: テクノロジー</div>
         <div class="summary">
         <h2>概要</h2>
