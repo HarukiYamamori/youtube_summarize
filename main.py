@@ -40,11 +40,11 @@ for channel_url in urls_array:
         result = summary_response(transcript(audiofile_path), None, channel_url)
 
         msg += result.summary
-        msg += '<hr>'
 
         for address in email_array:
             # メール送信
-            send_email(address, "", msg)
+            label = result.genre if hasattr(result, 'genre') and result.genre else None
+            send_email(address, "", msg, label_name=label)
             print(f'send_mail: {address}')
 
     else:
@@ -64,7 +64,7 @@ for channel_url in urls_array:
             msg += '<hr>'
 
         for address in email_array:
-            # メール送信
+            # メール送信（genreがあればラベルとして使用）
             send_email(address, channel_name, msg)
             print(f'send_mail: {address}')
 
