@@ -51,8 +51,10 @@ export MAIL_TITLE="mail-title"
 - `CHANNEL_URLS`: YouTubeチャンネルURL（カンマ区切り、必須）
 - `EMAIL_ADDRESSES`: 送信先メールアドレス（カンマ区切り、必須）
 - `GMAIL_ADDRESS`: 送信元Gmailアドレス（必須）
-- `GMAIL_PASSWORD`: Gmailアプリケーションパスワード（必須）
+- `GMAIL_PASSWORD`: Gmailアプリケーションパスワード（Gmail API使用時は不要、SMTP使用時のみ必要）
 - `MAIL_TITLE`: メールのタイトルに使用する文字列（オプション）
+
+**注意**: 本システムはGmail APIを使用するため、`GMAIL_PASSWORD`は通常不要です。Gmail APIの設定については [Gmail API設定ガイド](GMAIL_API_SETUP.md) を参照してください。
 
 ## セットアップ
 
@@ -126,12 +128,23 @@ playwright install chromium
 
 **注意**: 初回インストール時やPlaywrightを更新した後は、必ずこのコマンドを実行してください。ブラウザがインストールされていないと、実行時にエラーが発生します。
 
+### 5. Gmail APIの設定
+
+本システムはGmail APIを使用してメールを送信し、ジャンルに応じたラベルを自動付与します。
+
+詳細な設定手順は [Gmail API設定ガイド](GMAIL_API_SETUP.md) を参照してください。
+
+**重要**: Gmail APIを使用する場合、`GMAIL_PASSWORD`環境変数は不要です（OAuth 2.0認証を使用するため）。
+
 ## 処理の流れ
 1. **YouTube動画の取得**<br>`yt_dlp`を使用して、指定URLの動画をMP3形式でダウンロード
 2. **音声文字起こし・翻訳・要約**<br>`Google Gemini 2.0 Flash`により、音声を文字起こしし、日本語または英語に翻訳、さらに要約文を生成
 3. **Gmailで要約を送信**<br>生成した要約を、`Gmail API`を通じて指定アドレス宛に自動送信
 
 ## Gmailアプリケーションパスワードの取得方法（OAuth未使用の場合）
+
+**注意**: 本システムはGmail APIを使用するため、通常はこの方法は不要です。Gmail APIの設定については [Gmail API設定ガイド](GMAIL_API_SETUP.md) を参照してください。
+
 ※この方法は、2段階認証が有効なGoogleアカウントでのみ使用できます。
 
 Gmail経由でメール送信を行うためには、「アプリパスワード」が必要です。以下の手順で取得してください。
