@@ -1,5 +1,9 @@
 yt-dlp
+pytubefix
 google-genai
 playwright
 requests
 python-dotenv
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib

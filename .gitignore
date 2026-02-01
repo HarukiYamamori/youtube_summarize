@@ -3,3 +3,6 @@
 data/
 .idea/
 venv/
+credentials.json
+__pycache__/
+token.pickle
