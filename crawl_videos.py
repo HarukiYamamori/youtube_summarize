@@ -64,7 +64,21 @@ def fetch_channel_data(channel_url):
     return video_info_list, channel_name
 
 
+def fetch_video_title(video_url):
+    title = None
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(video_url)
+        page.wait_for_load_state("networkidle")
+        title = page.query_selector("#title").text_content().strip()
+
+        browser.close()
+
+        return title
+
+
+
 if __name__ == "__main__":
-    video_links, channel_name = fetch_channel_data("")
-    print("Channel Name:", channel_name)
-    print("Video Links:", video_links)
+    title = fetch_video_title("https://www.youtube.com/watch?v=mPWzFf7brIY")
+    print("Title:", title)
