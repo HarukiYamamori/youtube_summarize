@@ -28,7 +28,7 @@ def download_audio(url):
         download_with_youtube_dl(url, audio_path)
         if os.path.exists(result_path):
             logger.info(f"Saved at: {result_path}")
-            return _get_title_and_return(result_path)
+            return _get_title_and_return(url, result_path)
         # 例外なしで返ったがファイルが無い = ダウンロード失敗（yt-dlpが例外を投げない場合）
         logger.warning("yt-dlp returned but output file was not created")
         last_error = RuntimeError(f"yt-dlp did not create file: {result_path}")
@@ -41,7 +41,7 @@ def download_audio(url):
         download_with_pytube(url, audio_path)
         if os.path.exists(result_path):
             logger.info(f"Saved at: {result_path}")
-            return _get_title_and_return(result_path)
+            return _get_title_and_return(url, result_path)
         last_error = last_error or RuntimeError(f"pytube did not create file: {result_path}")
     except Exception as e:
         last_error = e
@@ -102,7 +102,7 @@ def download_with_pytube(url, audio_path):
     return result_path
 
 
-def _get_title_and_return(path):
+def _get_title_and_return(url, path):
     try:
         title = fetch_video_title(url)
     except Exception as e:

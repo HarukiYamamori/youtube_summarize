@@ -1,5 +1,8 @@
 from playwright.sync_api import sync_playwright
+from logging import getLogger, basicConfig, INFO
 
+basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = getLogger(__name__)
 
 def fetch_channel_data(channel_url):
     video_info_list = []
@@ -66,6 +69,7 @@ def fetch_channel_data(channel_url):
 
 def fetch_video_title(video_url):
     title = None
+    logger.info(f"Fetching video title for: {video_url}")
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
@@ -75,10 +79,12 @@ def fetch_video_title(video_url):
 
         browser.close()
 
+        logger.info(f"Video title: {title}")
+
         return title
 
 
 
 if __name__ == "__main__":
-    title = fetch_video_title("https://www.youtube.com/watch?v=mPWzFf7brIY")
+    title = fetch_video_title("https://www.youtube.com/watch?v=RI4nZL1M4mI")
     print("Title:", title)
