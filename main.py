@@ -35,21 +35,22 @@ for channel_url in urls_array:
         msg = ''
         try:
             # audioファイル(mp3)ダウンロード
-            audiofile_path = download_audio(channel_url)
+            title, audiofile_path = download_audio(channel_url)
         except Exception as e:
             logger.error(f"ダウンロードをスキップしました: {channel_url} - {e}")
             delete_all_files()
             continue
 
         # 文字起こし & 要約
-        result = summary_response(transcript(audiofile_path), None, channel_url)
+        result = summary_response(transcript(audiofile_path), title, channel_url)
 
         msg += result.summary
 
         for address in email_array:
             # メール送信
             label = result.genre if hasattr(result, 'genre') and result.genre else None
-            send_email(address, "", msg, label_name=label)
+
+            send_email(address, title, msg, label_name=label)
             print(f'send_mail: {address}')
 
     else:
@@ -61,7 +62,7 @@ for channel_url in urls_array:
             video_info = videos_info[i]
             try:
                 # audioファイル(mp3)ダウンロード
-                audiofile_path = download_audio(video_info.get("link"))
+                title, audiofile_path = download_audio(video_info.get("link"))
             except Exception as e:
                 logger.error(f"ダウンロードをスキップしました: {video_info.get('link')} - {e}")
                 continue
