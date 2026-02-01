@@ -33,8 +33,13 @@ email_array = [item.strip() for item in email_addresses.split(",")]
 for channel_url in urls_array:
     if "/watch?" in channel_url:
         msg = ''
-        # audioファイル(mp3)ダウンロード
-        audiofile_path = download_audio(channel_url)
+        try:
+            # audioファイル(mp3)ダウンロード
+            audiofile_path = download_audio(channel_url)
+        except Exception as e:
+            logger.error(f"ダウンロードをスキップしました: {channel_url} - {e}")
+            delete_all_files()
+            continue
 
         # 文字起こし & 要約
         result = summary_response(transcript(audiofile_path), None, channel_url)
@@ -54,8 +59,12 @@ for channel_url in urls_array:
         for i in range(len(videos_info)):
             msg = ''
             video_info = videos_info[i]
-            # audioファイル(mp3)ダウンロード
-            audiofile_path = download_audio(video_info.get("link"))
+            try:
+                # audioファイル(mp3)ダウンロード
+                audiofile_path = download_audio(video_info.get("link"))
+            except Exception as e:
+                logger.error(f"ダウンロードをスキップしました: {video_info.get('link')} - {e}")
+                continue
 
             # 文字起こし & 要約
             result = summary_response(transcript(audiofile_path), video_info.get("title"), video_info.get("link"))

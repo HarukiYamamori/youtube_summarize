@@ -1,4 +1,5 @@
 yt-dlp
+pytubefix
 google-genai
 playwright
 requests
