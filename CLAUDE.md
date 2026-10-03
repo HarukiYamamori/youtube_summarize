@@ -29,7 +29,7 @@ Gmail OAuthでは`credentials.json`（クライアントシークレット）を
 `main.py`は`main()`関数を持たないトップレベルのスクリプト。カンマ区切りの`CHANNEL_URLS`を順に処理し、各URLは次の2通りのどちらかで処理される。
 
 - **単一動画のURL**（`/watch?`を含む）：ダウンロード → 文字起こし → 要約。**動画1本につきメール1通**を送る。件名はGeminiが生成したタイトルで、判定された`genre`をGmailラベルとして付ける。
-- **チャンネルのURL**：`crawl_videos.fetch_channel_data(f"{url}/videos")`が、ヘッドレスのPlaywrightでチャンネルの動画一覧ページをスクレイピングする。投稿日表示が時間・分・秒単位のもの（`時間前`・`hours ago`など、日本語と英語の両方の文字列）だけを残すので、おおむね直近24時間の動画が対象になる。メンバー限定動画（`aria-label='メンバー限定'`）はスキップする。そのチャンネルの要約をすべて`<hr>`でつなぎ、**チャンネルごとにメール1通**として送る。件名はチャンネル名で、ラベルは付かない。
+- **チャンネルのURL**：`crawl_videos.fetch_channel_data(f"{url}/videos")`が、yt-dlpで動画一覧（新しい順に最大`MAX_CHECK_VIDEOS`本）を取得し、1本ずつ詳細を取って公開日時（`timestamp`）が直近`NEW_VIDEO_HOURS`時間（24時間）以内のものを残す。期間外の動画が出た時点で打ち切る。メンバー限定（`availability`）、配信中・公開前（`live_status`）、情報を取得できない動画はスキップする。そのチャンネルの要約をすべて`<hr>`でつなぎ、**チャンネルごとにメール1通**として送る。件名はチャンネル名で、ラベルは付かない。
 
 各URLの処理が終わるたびに、`file_handler.delete_all_files()`で`data/`を空にする。
 
@@ -42,5 +42,6 @@ Gmail OAuthでは`credentials.json`（クライアントシークレット）を
 
 - `audio_transcript.py`は、`GOOGLE_API_KEY`が未設定だと**import時に**`ValueError`を投げる。そのため`main`や`audio_transcript`をimportするには環境変数の設定が必要。
 - `summary_response`がエラー時に作るフォールバックの`Result(...)`は、必須フィールドの`title`が抜けている。そのためフォールバックを返す代わりにPydanticの`ValidationError`が発生する。
-- チャンネルのスクレイパーは、YouTubeのDOMセレクタ（`.ytd-rich-grid-media`、`a#thumbnail`、`#metadata-line`、`h1[aria-label]`）と、相対日付表示の言語に依存している。YouTubeのUIが変わると、分かりやすいエラーを出さずに壊れることが多い。
+- YouTubeのRSS（`feeds/videos.xml`）は2026-10時点で全チャンネル404を返していたため、新着取得はyt-dlpで行っている。Playwrightは、`download_audio`のタイトル取得（`fetch_video_title`）でだけ使っている。
+- 1日に`MAX_CHECK_VIDEOS`本より多く投稿するチャンネルでは、それを超えた分は取りこぼす。
 - 各モジュールがimport時に`basicConfig`を呼んでいるため、最初にimportされたモジュールの設定が有効になる。
