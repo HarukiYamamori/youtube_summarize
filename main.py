@@ -41,8 +41,13 @@ for channel_url in urls_array:
             delete_all_files()
             continue
 
-        # 文字起こし & 要約
-        result = summary_response(transcript(audiofile_path), title, channel_url)
+        try:
+            # 文字起こし & 要約
+            result = summary_response(transcript(audiofile_path), title, channel_url)
+        except Exception as e:
+            logger.error(f"文字起こし・要約をスキップしました: {channel_url} - {e}")
+            delete_all_files()
+            continue
 
         msg += result.summary
 
@@ -57,8 +62,8 @@ for channel_url in urls_array:
         logger.info("process start for %s", channel_url)
         videos_info, channel_name = fetch_channel_data(f"{channel_url}/videos")
 
+        msg = ''
         for i in range(len(videos_info)):
-            msg = ''
             video_info = videos_info[i]
             try:
                 # audioファイル(mp3)ダウンロード
@@ -67,15 +72,22 @@ for channel_url in urls_array:
                 logger.error(f"ダウンロードをスキップしました: {video_info.get('link')} - {e}")
                 continue
 
-            # 文字起こし & 要約
-            result = summary_response(transcript(audiofile_path), video_info.get("title"), video_info.get("link"))
+            try:
+                # 文字起こし & 要約
+                result = summary_response(transcript(audiofile_path), video_info.get("title"), video_info.get("link"))
+            except Exception as e:
+                logger.error(f"文字起こし・要約をスキップしました: {video_info.get('link')} - {e}")
+                continue
 
             msg += result.summary
             msg += '<hr>'
 
-        for address in email_array:
-            # メール送信（genreがあればラベルとして使用）
-            send_email(address, channel_name, msg)
-            print(f'send_mail: {address}')
+        if not msg:
+            logger.info("送信する要約が無いため、メール送信をスキップしました: %s", channel_name)
+        else:
+            for address in email_array:
+                # メール送信
+                send_email(address, channel_name, msg)
+                print(f'send_mail: {address}')
 
     delete_all_files()

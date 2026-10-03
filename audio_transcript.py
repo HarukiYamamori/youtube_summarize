@@ -127,6 +127,7 @@ def summary_response(txt, title, link):
         logger.error(f"要約に失敗しました。finish_reason: {finish_reason}")
         # エラーの場合は、デフォルト値でResultオブジェクトを返す
         return Result(
+            title=title or "タイトル不明",
             summary=f"<h1><a href=\"{link}\">{title}</a></h1><p>要約の生成に失敗しました。finish_reason: {finish_reason}</p>",
             genre="その他"
         )
@@ -144,6 +145,7 @@ def summary_response(txt, title, link):
         logger.error(f"JSONのパースに失敗しました: {e}")
         logger.error(f"Response text: {response.text}")
         return Result(
+            title=title or "タイトル不明",
             summary=f"<h1><a href=\"{link}\">{title}</a></h1><p>要約の生成に失敗しました。JSONパースエラー</p>",
             genre="その他"
         )
