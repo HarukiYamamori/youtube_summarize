@@ -50,7 +50,7 @@ for channel_url in urls_array:
             # メール送信
             label = result.genre if hasattr(result, 'genre') and result.genre else None
 
-            send_email(address, title, msg, label_name=label)
+            send_email(address, result.title, msg, label_name=label)
             print(f'send_mail: {address}')
 
     else:

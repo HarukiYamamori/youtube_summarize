@@ -19,7 +19,7 @@ if not GOOGLE_API_KEY:
     logger.error("エラー: GOOGLE_API_KEY環境変数が設定されていません")
     raise ValueError("GOOGLE_API_KEY環境変数が設定されていません")
 client = genai.Client(api_key=GOOGLE_API_KEY)
-model = "gemini-2.5-flash"
+model = "gemini-3-flash-preview"
 
 def transcript(audio_path):
     logger.info(f"Transcribe file:{audio_path}")
@@ -49,6 +49,7 @@ def summary_response(txt, title, link):
     logger.info("Summarize")
 
     class Result(BaseModel):
+        title: str = Field(description="動画タイトル")
         summary: str = Field(description="HTML形式の要約本文")
         genre: str = Field(description="ジャンル")
 
@@ -95,8 +96,8 @@ def summary_response(txt, title, link):
         - 生活情報
         - その他
 
-        【出力例】
-        <h1><a href="{link}">動画タイトル（タイトルがない場合は、文章から動画タイトルを自由に生成してください。）</a></h1>
+        【出力HTML形式】
+        <h1><a href="{link}">動画タイトル（タイトルは本文の内容を踏まえて自由に生成してください）</a></h1>
         <div class="genre">ジャンル: テクノロジー</div>
         <div class="summary">
         <h2>概要</h2>
@@ -134,6 +135,7 @@ def summary_response(txt, title, link):
         result_json = json.loads(response.text)
         result = Result(**result_json)
         
+        logger.info(f"Title: {result.title}")
         logger.info(f"Summary result:\n{result.summary}")
         logger.info(f"Genre: {result.genre}")
         
