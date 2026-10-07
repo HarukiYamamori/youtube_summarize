@@ -1,0 +1,44 @@
+# config.example.toml を config.toml にコピーして編集してください。
+# config.toml が無い場合は、環境変数 CHANNEL_URLS / EMAIL_ADDRESSES が使われます。
+# APIキーなどの秘密情報は、これまでどおり .env に設定してください。
+
+# 要約に使うGeminiのモデル（省略時: gemini-3-flash-preview）
+model = "gemini-3-flash-preview"
+
+# モデルが混雑（503など）・タイムアウトで失敗したときにやり直すモデル（省略時: gemini-flash-latest）
+# 空文字 "" にするとフォールバックしない
+fallback_model = "gemini-flash-latest"
+
+# 新着とみなす期間（時間）（省略時: 24）
+new_video_hours = 24
+
+# チャンネルごとに新着を確認する動画数の上限（省略時: 15）
+max_check_videos = 15
+
+# 送信先（targets ごとに recipients を書かなかった場合に使われる）
+recipients = ["you@example.com"]
+
+# 要約する対象。チャンネルのURL、または動画のURL（/watch?v=...）
+[[targets]]
+url = "https://www.youtube.com/@CNN"
+
+# このチャンネルだけ別の送信先に送る
+[[targets]]
+url = "https://www.youtube.com/@NHK"
+recipients = ["friend1@example.com", "friend2@example.com"]
+
+[[targets]]
+url = "https://www.youtube.com/watch?v=xxxxxxxxxxx"
+
+# 複数のURLをまとめて、1通のメールで送る（任意）
+# 各動画の要約に加えて、それらを横断してトピック別に整理したダイジェストと、参照した動画のリンク一覧を先頭に付ける
+[[groups]]
+name = "朝のニュースまとめ"   # グループの名前（件名は内容から自動生成。生成できなかったときはこの名前）
+urls = [
+  "https://www.youtube.com/@CNN",
+  "https://www.youtube.com/@NHK",
+  "https://www.youtube.com/watch?v=xxxxxxxxxxx",
+]
+recipients = ["you@example.com"]   # 省略時は全体の recipients
+# ダイジェストのまとめ方の指示（任意）
+focus = "経済・テクノロジー関連の話題を優先する"

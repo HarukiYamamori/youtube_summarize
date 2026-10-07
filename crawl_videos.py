@@ -1,26 +1,22 @@
 import time
 from datetime import datetime
 import yt_dlp
-from playwright.sync_api import sync_playwright
+from config import DEFAULT_NEW_VIDEO_HOURS, DEFAULT_MAX_CHECK_VIDEOS
 from logging import getLogger, basicConfig, INFO
 
 basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = getLogger(__name__)
 
-# 新着とみなす期間（時間）
-NEW_VIDEO_HOURS = 24
-# チャンネルごとに新着を確認する動画数の上限
-MAX_CHECK_VIDEOS = 15
 
-def fetch_channel_data(channel_url):
-    """チャンネルの動画一覧から、直近NEW_VIDEO_HOURS時間以内に公開された動画を取得する"""
+def fetch_channel_data(channel_url, new_video_hours=DEFAULT_NEW_VIDEO_HOURS, max_check_videos=DEFAULT_MAX_CHECK_VIDEOS):
+    """チャンネルの動画一覧（新しい順に最大max_check_videos本）から、直近new_video_hours時間以内に公開された動画を取得する"""
     video_info_list = []
-    cutoff = time.time() - NEW_VIDEO_HOURS * 60 * 60
+    cutoff = time.time() - new_video_hours * 60 * 60
 
     # 動画一覧（新しい順）をIDとタイトルだけ取得
     flat_opts = {
         'extract_flat': 'in_playlist',
-        'playlistend': MAX_CHECK_VIDEOS,
+        'playlistend': max_check_videos,
         'quiet': True,
         'skip_download': True,
     }
@@ -64,24 +60,8 @@ def fetch_channel_data(channel_url):
     return video_info_list, channel_name
 
 
-def fetch_video_title(video_url):
-    title = None
-    logger.info(f"Fetching video title for: {video_url}")
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto(video_url)
-        page.wait_for_load_state("networkidle")
-        title = page.query_selector("#title").text_content().strip()
-
-        browser.close()
-
-        logger.info(f"Video title: {title}")
-
-        return title
-
-
-
 if __name__ == "__main__":
-    title = fetch_video_title("https://www.youtube.com/watch?v=RI4nZL1M4mI")
-    print("Title:", title)
+    videos, name = fetch_channel_data("https://www.youtube.com/@CNN/videos")
+    print("Channel:", name)
+    for video in videos:
+        print(video)

@@ -57,16 +57,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     fi
 fi
 
-# Playwrightブラウザのインストール
-echo ""
-echo "Playwrightブラウザをインストール中..."
-playwright install chromium
-if [ $? -ne 0 ]; then
-    echo "エラー: Playwrightブラウザのインストールに失敗しました。"
-    exit 1
-fi
-echo "Playwrightブラウザのインストールが完了しました。"
-
 # 有効化コマンドをログ出力
 echo ""
 echo "セットアップが完了しました！"

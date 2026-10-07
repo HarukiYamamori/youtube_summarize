@@ -1,7 +1,6 @@
 yt-dlp
 pytubefix
 google-genai
-playwright
 requests
 python-dotenv
 google-api-python-client
