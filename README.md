@@ -25,6 +25,7 @@ cp config.example.toml config.toml
 
 ```toml
 model = "gemini-3-flash-preview"   # 要約に使うGeminiのモデル
+fallback_model = "gemini-flash-latest"  # 混雑（503など）・タイムアウト時にやり直すモデル（""で無効）
 new_video_hours = 24               # 新着とみなす期間（時間）
 max_check_videos = 15              # チャンネルごとに新着を確認する動画数の上限
 recipients = ["you@example.com"]   # 送信先（ターゲットごとに上書きできる）
@@ -35,7 +36,15 @@ url = "https://www.youtube.com/@CNN"
 [[targets]]
 url = "https://www.youtube.com/@NHK"
 recipients = ["friend@example.com"]
+
+# 複数のURLをまとめて1通で送る
+[[groups]]
+name = "朝のニュースまとめ"        # メールの件名
+urls = ["https://www.youtube.com/@CNN", "https://www.youtube.com/@NHK"]
+focus = "経済関連を優先する"        # ダイジェストのまとめ方の指示（任意）
 ```
+
+`[[groups]]`に指定したURL（チャンネル・動画どちらでも可）は、新着動画をすべて要約したうえで1通のメールにまとめて送ります。メールの先頭には、各要約を横断してトピック別に整理したダイジェスト（同じ話題は統合、出典リンク付き）が付きます。
 
 `config.toml`は`.gitignore`に含まれています。`config.toml`が無い場合は、下記の環境変数`CHANNEL_URLS`・`EMAIL_ADDRESSES`が使われます。別の場所のファイルを使う場合は、環境変数`CONFIG_PATH`でパスを指定してください。
 
