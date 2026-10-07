@@ -8,12 +8,36 @@ GCP環境にて日次で定期実行され、日々の情報収集や動画要�
 ### 言語・ライブラリ
 - Python 3.11
 - yt-dlp（YouTube動画のダウンロード）
-- Google Gemini 2.0 Flash（文字起こし・翻訳・要約）
+- Google Gemini（要約。モデルは設定ファイルで変更可能、既定は gemini-3-flash-preview）
 - Gmail API（メール送信）
 - python-dotenv（環境変数管理）
 
 ### 実行環境
 Google Cloud Platform（GCP）上のインスタンスで日次スケジューリング実行
+
+## 設定ファイル（config.toml）
+
+要約する対象のURLや送信先は、`config.toml`に書きます。`config.example.toml`をコピーして編集してください：
+
+```bash
+cp config.example.toml config.toml
+```
+
+```toml
+model = "gemini-3-flash-preview"   # 要約に使うGeminiのモデル
+new_video_hours = 24               # 新着とみなす期間（時間）
+max_check_videos = 15              # チャンネルごとに新着を確認する動画数の上限
+recipients = ["you@example.com"]   # 送信先（ターゲットごとに上書きできる）
+
+[[targets]]
+url = "https://www.youtube.com/@CNN"
+
+[[targets]]
+url = "https://www.youtube.com/@NHK"
+recipients = ["friend@example.com"]
+```
+
+`config.toml`は`.gitignore`に含まれています。`config.toml`が無い場合は、下記の環境変数`CHANNEL_URLS`・`EMAIL_ADDRESSES`が使われます。別の場所のファイルを使う場合は、環境変数`CONFIG_PATH`でパスを指定してください。
 
 ## 環境変数の設定
 
@@ -48,8 +72,8 @@ export MAIL_TITLE="mail-title"
 ### 環境変数の説明
 
 - `GOOGLE_API_KEY`: Google Gemini APIのキー（必須）
-- `CHANNEL_URLS`: YouTubeチャンネルURL（カンマ区切り、必須）
-- `EMAIL_ADDRESSES`: 送信先メールアドレス（カンマ区切り、必須）
+- `CHANNEL_URLS`: YouTubeチャンネルURL（カンマ区切り。`config.toml`が無い場合は必須）
+- `EMAIL_ADDRESSES`: 送信先メールアドレス（カンマ区切り。`config.toml`が無い場合は必須）
 - `GMAIL_ADDRESS`: 送信元Gmailアドレス（必須）
 - `GMAIL_PASSWORD`: Gmailアプリケーションパスワード（Gmail API使用時は不要、SMTP使用時のみ必要）
 - `MAIL_TITLE`: メールのタイトルに使用する文字列（オプション）
@@ -112,23 +136,7 @@ sudo yum install ffmpeg
 choco install ffmpeg
 ```
 
-### 4. Playwrightブラウザのインストール
-
-本システムはPlaywrightを使用してYouTubeチャンネル情報を取得します。初回実行前に、以下のコマンドでPlaywrightのブラウザをインストールしてください：
-
-```bash
-playwright install
-```
-
-または、Chromiumのみをインストールする場合：
-
-```bash
-playwright install chromium
-```
-
-**注意**: 初回インストール時やPlaywrightを更新した後は、必ずこのコマンドを実行してください。ブラウザがインストールされていないと、実行時にエラーが発生します。
-
-### 5. Gmail APIの設定
+### 4. Gmail APIの設定
 
 本システムはGmail APIを使用してメールを送信し、ジャンルに応じたラベルを自動付与します。
 
@@ -138,7 +146,7 @@ playwright install chromium
 
 ## 処理の流れ
 1. **YouTube動画の取得**<br>`yt_dlp`を使用して、指定URLの動画をMP3形式でダウンロード
-2. **音声文字起こし・翻訳・要約**<br>`Google Gemini 2.0 Flash`により、音声を文字起こしし、日本語または英語に翻訳、さらに要約文を生成
+2. **要約**<br>`Google Gemini`に音声ファイルを渡し、1回の呼び出しで要約文（HTML）とジャンルを生成
 3. **Gmailで要約を送信**<br>生成した要約を、`Gmail API`を通じて指定アドレス宛に自動送信
 
 ## Gmailアプリケーションパスワードの取得方法（OAuth未使用の場合）

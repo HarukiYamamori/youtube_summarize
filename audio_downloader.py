@@ -4,7 +4,6 @@ from urllib.parse import urlparse, parse_qs
 from logging import getLogger, basicConfig, INFO
 from pytubefix import YouTube
 import traceback
-from crawl_videos import fetch_video_title
 
 basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = getLogger(__name__)
@@ -25,10 +24,10 @@ def download_audio(url):
 
     last_error = None
     try:
-        download_with_youtube_dl(url, audio_path)
+        title = download_with_youtube_dl(url, audio_path)
         if os.path.exists(result_path):
             logger.info(f"Saved at: {result_path}")
-            return _get_title_and_return(url, result_path)
+            return (title, result_path)
         # 例外なしで返ったがファイルが無い = ダウンロード失敗（yt-dlpが例外を投げない場合）
         logger.warning("yt-dlp returned but output file was not created")
         last_error = RuntimeError(f"yt-dlp did not create file: {result_path}")
@@ -38,10 +37,10 @@ def download_audio(url):
 
     logger.info("Trying pytube as fallback...")
     try:
-        download_with_pytube(url, audio_path)
+        title = download_with_pytube(url, audio_path)
         if os.path.exists(result_path):
             logger.info(f"Saved at: {result_path}")
-            return _get_title_and_return(url, result_path)
+            return (title, result_path)
         last_error = last_error or RuntimeError(f"pytube did not create file: {result_path}")
     except Exception as e:
         last_error = e
@@ -75,6 +74,8 @@ def download_with_youtube_dl(url, audio_path):
             'preferredquality': '192',
         }],
         'noplaylist': True,  # プレイリストのダウンロードを防ぐ
+        # JSランタイムが無いと403になるため、deno に加えて node も使えるようにする
+        'js_runtimes': {'deno': {}, 'node': {}},
     }
     
     # ffmpegが見つかった場合のみ設定
@@ -84,7 +85,8 @@ def download_with_youtube_dl(url, audio_path):
         logger.warning("ffmpegが見つかりません。音声変換が失敗する可能性があります。")
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+        info = ydl.extract_info(url, download=True)
+    return info.get("title") or ""
 
 def download_with_pytube(url, audio_path):
     yt = YouTube(url)
@@ -99,16 +101,7 @@ def download_with_pytube(url, audio_path):
     audio_stream.download(output_path=output_path, filename=filename)
     if not os.path.exists(result_path):
         raise RuntimeError(f"pytube: File was not created: {result_path}")
-    return result_path
-
-
-def _get_title_and_return(url, path):
-    try:
-        title = fetch_video_title(url)
-    except Exception as e:
-        logger.warning("Failed to fetch video title: %s", e)
-        title = ""
-    return (title, path)
+    return yt.title or ""
 
 
 if __name__ == "__main__":

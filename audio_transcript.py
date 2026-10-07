@@ -6,6 +6,7 @@ from logging import getLogger, basicConfig, INFO
 import json
 
 from audio_downloader import download_audio
+from config import DEFAULT_MODEL
 
 # .envファイルから環境変数を読み込む
 load_dotenv()
@@ -19,47 +20,37 @@ if not GOOGLE_API_KEY:
     logger.error("エラー: GOOGLE_API_KEY環境変数が設定されていません")
     raise ValueError("GOOGLE_API_KEY環境変数が設定されていません")
 client = genai.Client(api_key=GOOGLE_API_KEY)
-model = "gemini-3-flash-preview"
 
-def transcript(audio_path):
-    logger.info(f"Transcribe file:{audio_path}")
+
+class Result(BaseModel):
+    title: str = Field(description="動画タイトル")
+    summary: str = Field(description="HTML形式の要約本文")
+    genre: str = Field(description="ジャンル")
+
+
+def summarize_audio(audio_path, title, link, model=DEFAULT_MODEL):
+    """音声ファイルをGeminiにアップロードし、1回の呼び出しで要約とジャンル判定を行う"""
+    logger.info(f"Summarize file:{audio_path}")
     audio_file = client.files.upload(file=audio_path)
-
-    # プロンプトの準備
-    response = client.models.generate_content(
-        model=model,
-        contents=[
-            "次の音声ファイルの内容を文字起こししてください。",
-            audio_file
-        ]
-    )
-    
-    # レスポンスの検証
-    if not response.candidates or not response.candidates[0].content.parts:
-        finish_reason = response.candidates[0].finish_reason if response.candidates else "不明"
-        logger.error(f"文字起こしに失敗しました。finish_reason: {finish_reason}")
-        raise ValueError(f"文字起こしに失敗しました。finish_reason: {finish_reason}")
-    
-    result_text = response.text
-    logger.info(f"Transcription result: {result_text}")
-    return result_text
+    try:
+        return _summarize(audio_file, title, link, model)
+    finally:
+        # アップロードした音声ファイルをGeminiから削除
+        try:
+            client.files.delete(name=audio_file.name)
+            logger.info(f"Deleted uploaded file: {audio_file.name}")
+        except Exception as e:
+            logger.warning(f"アップロードしたファイルの削除に失敗しました: {audio_file.name} - {e}")
 
 
-def summary_response(txt, title, link):
-    logger.info("Summarize")
-
-    class Result(BaseModel):
-        title: str = Field(description="動画タイトル")
-        summary: str = Field(description="HTML形式の要約本文")
-        genre: str = Field(description="ジャンル")
-
+def _summarize(audio_file, title, link, model):
     prompt = f"""
-        以下のテキストを要約し、構造化されたHTML形式で出力してください。
+        添付の音声ファイルの内容を要約し、構造化されたHTML形式で出力してください。
 
         【出力形式の要件】
         1. HTMLの構造は以下の通りにしてください：
         - <h1>タグ: 動画タイトルをリンクとして表示（リンク先: {link}）
-        - なお、タイトルがない場合は、文章から動画タイトルを自由に生成してください。
+        - なお、タイトルがない場合は、音声の内容から動画タイトルを自由に生成してください。
         - <div class="summary">タグ: 要約内容を表示
 
         2. 要約内容の構造：
@@ -74,10 +65,10 @@ def summary_response(txt, title, link):
 
         【入力情報】
         動画タイトル: {title}
-        本文: {txt}
+        本文: 添付の音声ファイル
 
         【ジャンル判定】
-        本文の内容を分析し、以下のいずれかのジャンルを選択してください：
+        音声の内容を分析し、以下のいずれかのジャンルを選択してください：
         - 政治経済
         - 社会
         - 文化
@@ -97,7 +88,7 @@ def summary_response(txt, title, link):
         - その他
 
         【出力HTML形式】
-        <h1><a href="{link}">動画タイトル（タイトルは本文の内容を踏まえて自由に生成してください）</a></h1>
+        <h1><a href="{link}">動画タイトル（タイトルは音声の内容を踏まえて自由に生成してください）</a></h1>
         <div class="genre">ジャンル: テクノロジー</div>
         <div class="summary">
         <h2>概要</h2>
@@ -114,7 +105,7 @@ def summary_response(txt, title, link):
 
     response = client.models.generate_content(
         model=model,
-        contents=prompt,
+        contents=[prompt, audio_file],
         config={
             "response_mime_type": "application/json",
             "response_schema": Result,
@@ -152,6 +143,7 @@ def summary_response(txt, title, link):
 
 
 if __name__ == "__main__":
-    audio_file = download_audio("https://www.youtube.com/watch?v=5N7wwGoLrKs")
-    summary_response(transcript(audio_file), "", "")
+    url = "https://www.youtube.com/watch?v=5N7wwGoLrKs"
+    title, audio_path = download_audio(url)
+    summarize_audio(audio_path, title, url)
 

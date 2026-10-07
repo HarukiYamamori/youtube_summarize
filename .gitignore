@@ -6,3 +6,4 @@ venv/
 credentials.json
 __pycache__/
 token.pickle
+config.toml

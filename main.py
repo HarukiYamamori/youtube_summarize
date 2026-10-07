@@ -1,91 +1,80 @@
-import os
 import sys
 from logging import basicConfig, INFO, getLogger
 from dotenv import load_dotenv
 
+# .envファイルから環境変数を読み込む（各モジュールのimport前に読み込む）
+load_dotenv()
+
 from audio_downloader import download_audio
-from audio_transcript import summary_response, transcript
+from audio_transcript import summarize_audio
+from config import load_config
 from crawl_videos import fetch_channel_data
 from file_handler import delete_all_files
-from gmail_sender import send_email
-
-# .envファイルから環境変数を読み込む
-load_dotenv()
+from gmail_sender import GmailAuthError, get_gmail_service, send_email
 
 basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = getLogger(__name__)
 
-# 環境変数から設定を取得
-channel_urls = os.getenv('CHANNEL_URLS', '')
-email_addresses = os.getenv('EMAIL_ADDRESSES', '')
 
-if not channel_urls:
-    logger.error("エラー: CHANNEL_URLS環境変数が設定されていません")
+def summarize_video(link, title, model):
+    """動画をダウンロードして要約する。失敗した場合はNoneを返す"""
+    try:
+        # audioファイル(mp3)ダウンロード
+        downloaded_title, audiofile_path = download_audio(link)
+    except Exception as e:
+        logger.error(f"ダウンロードをスキップしました: {link} - {e}")
+        return None
+
+    try:
+        # 要約
+        return summarize_audio(audiofile_path, title or downloaded_title, link, model=model)
+    except Exception as e:
+        logger.error(f"要約をスキップしました: {link} - {e}")
+        return None
+
+
+try:
+    config = load_config()
+except ValueError as e:
+    logger.error(f"エラー: {e}")
     sys.exit(1)
 
-if not email_addresses:
-    logger.error("エラー: EMAIL_ADDRESSES環境変数が設定されていません")
+# 動画の処理を始める前に、Gmailの認証が通るか確認する
+try:
+    get_gmail_service()
+except GmailAuthError as e:
+    logger.error(f"エラー: {e}")
     sys.exit(1)
 
-urls_array = [item.strip() for item in channel_urls.split(",")]
-email_array = [item.strip() for item in email_addresses.split(",")]
+for target in config.targets:
+    if "/watch?" in target.url:
+        result = summarize_video(target.url, "", config.model)
 
-for channel_url in urls_array:
-    if "/watch?" in channel_url:
-        msg = ''
-        try:
-            # audioファイル(mp3)ダウンロード
-            title, audiofile_path = download_audio(channel_url)
-        except Exception as e:
-            logger.error(f"ダウンロードをスキップしました: {channel_url} - {e}")
-            delete_all_files()
-            continue
-
-        try:
-            # 文字起こし & 要約
-            result = summary_response(transcript(audiofile_path), title, channel_url)
-        except Exception as e:
-            logger.error(f"文字起こし・要約をスキップしました: {channel_url} - {e}")
-            delete_all_files()
-            continue
-
-        msg += result.summary
-
-        for address in email_array:
-            # メール送信
-            label = result.genre if hasattr(result, 'genre') and result.genre else None
-
-            send_email(address, result.title, msg, label_name=label)
-            print(f'send_mail: {address}')
+        if result:
+            for address in target.recipients:
+                # メール送信（genreをラベルとして使用）
+                send_email(address, result.title, result.summary, label_name=result.genre or None)
+                print(f'send_mail: {address}')
 
     else:
-        logger.info("process start for %s", channel_url)
-        videos_info, channel_name = fetch_channel_data(f"{channel_url}/videos")
+        logger.info("process start for %s", target.url)
+        videos_info, channel_name = fetch_channel_data(
+            f"{target.url}/videos",
+            new_video_hours=config.new_video_hours,
+            max_check_videos=config.max_check_videos,
+        )
 
         msg = ''
-        for i in range(len(videos_info)):
-            video_info = videos_info[i]
-            try:
-                # audioファイル(mp3)ダウンロード
-                title, audiofile_path = download_audio(video_info.get("link"))
-            except Exception as e:
-                logger.error(f"ダウンロードをスキップしました: {video_info.get('link')} - {e}")
-                continue
-
-            try:
-                # 文字起こし & 要約
-                result = summary_response(transcript(audiofile_path), video_info.get("title"), video_info.get("link"))
-            except Exception as e:
-                logger.error(f"文字起こし・要約をスキップしました: {video_info.get('link')} - {e}")
-                continue
-
-            msg += result.summary
-            msg += '<hr>'
+        for video_info in videos_info:
+            result = summarize_video(video_info.get("link"), video_info.get("title"), config.model)
+            if result:
+                msg += result.summary
+                msg += '<hr>'
 
         if not msg:
             logger.info("送信する要約が無いため、メール送信をスキップしました: %s", channel_name)
         else:
-            for address in email_array:
+            for address in target.recipients:
                 # メール送信
                 send_email(address, channel_name, msg)
                 print(f'send_mail: {address}')
