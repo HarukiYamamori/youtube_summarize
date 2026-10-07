@@ -1,4 +1,5 @@
 import os
+import time
 import yt_dlp
 from urllib.parse import urlparse, parse_qs
 from logging import getLogger, basicConfig, INFO
@@ -7,6 +8,11 @@ import traceback
 
 basicConfig(level=INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = getLogger(__name__)
+
+# YouTubeはときどき403を返すが、やり直すと成功することが多いので、yt-dlpはこの回数まで試す
+YT_DLP_ATTEMPTS = 3
+# yt-dlpをやり直すまでの待ち時間（秒）
+YT_DLP_RETRY_WAIT_SECONDS = 5
 
 def get_video_id(url):
     """YouTubeのURLから動画IDを取得"""
@@ -23,17 +29,21 @@ def download_audio(url):
     os.makedirs("data", exist_ok=True)
 
     last_error = None
-    try:
-        title = download_with_youtube_dl(url, audio_path)
-        if os.path.exists(result_path):
-            logger.info(f"Saved at: {result_path}")
-            return (title, result_path)
-        # 例外なしで返ったがファイルが無い = ダウンロード失敗（yt-dlpが例外を投げない場合）
-        logger.warning("yt-dlp returned but output file was not created")
-        last_error = RuntimeError(f"yt-dlp did not create file: {result_path}")
-    except Exception as e:
-        last_error = e
-        logger.error(f"Error downloading with youtube_dl: {e}")
+    for attempt in range(1, YT_DLP_ATTEMPTS + 1):
+        if attempt > 1:
+            logger.info(f"yt-dlpでやり直します（{attempt}/{YT_DLP_ATTEMPTS}回目）")
+            time.sleep(YT_DLP_RETRY_WAIT_SECONDS)
+        try:
+            title = download_with_youtube_dl(url, audio_path)
+            if os.path.exists(result_path):
+                logger.info(f"Saved at: {result_path}")
+                return (title, result_path)
+            # 例外なしで返ったがファイルが無い = ダウンロード失敗（yt-dlpが例外を投げない場合）
+            logger.warning("yt-dlp returned but output file was not created")
+            last_error = RuntimeError(f"yt-dlp did not create file: {result_path}")
+        except Exception as e:
+            last_error = e
+            logger.error(f"Error downloading with youtube_dl: {e}")
 
     logger.info("Trying pytube as fallback...")
     try:

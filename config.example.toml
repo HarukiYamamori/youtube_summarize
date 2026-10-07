@@ -31,9 +31,9 @@ recipients = ["friend1@example.com", "friend2@example.com"]
 url = "https://www.youtube.com/watch?v=xxxxxxxxxxx"
 
 # 複数のURLをまとめて、1通のメールで送る（任意）
-# 各動画の要約に加えて、それらを横断してトピック別に整理したダイジェストを先頭に付ける
+# 各動画の要約に加えて、それらを横断してトピック別に整理したダイジェストと、参照した動画のリンク一覧を先頭に付ける
 [[groups]]
-name = "朝のニュースまとめ"   # メールの件名になる
+name = "朝のニュースまとめ"   # グループの名前（件名は内容から自動生成。生成できなかったときはこの名前）
 urls = [
   "https://www.youtube.com/@CNN",
   "https://www.youtube.com/@NHK",

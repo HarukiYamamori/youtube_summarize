@@ -1,3 +1,4 @@
+import html
 import sys
 from logging import basicConfig, INFO, getLogger
 from dotenv import load_dotenv
@@ -47,13 +48,13 @@ except GmailAuthError as e:
     sys.exit(1)
 
 def summarize_target(url, config):
-    """URL（単一動画またはチャンネル）の動画を要約し、(名前, 要約結果のリスト)を返す
+    """URL（単一動画またはチャンネル）の動画を要約し、(名前, [(要約結果, 動画のリンク), ...])を返す
 
     名前は、単一動画なら動画タイトル、チャンネルならチャンネル名。
     """
     if "/watch?" in url:
         result = summarize_video(url, "", config)
-        return (result.title if result else url), ([result] if result else [])
+        return (result.title if result else url), ([(result, url)] if result else [])
 
     logger.info("process start for %s", url)
     videos_info, channel_name = fetch_channel_data(
@@ -66,7 +67,7 @@ def summarize_target(url, config):
     for video_info in videos_info:
         result = summarize_video(video_info.get("link"), video_info.get("title"), config)
         if result:
-            results.append(result)
+            results.append((result, video_info.get("link")))
     return channel_name, results
 
 
@@ -74,7 +75,7 @@ for target in config.targets:
     name, results = summarize_target(target.url, config)
 
     if "/watch?" in target.url:
-        for result in results:
+        for result, _ in results:
             for address in target.recipients:
                 # メール送信（genreをラベルとして使用）
                 send_email(address, result.title, result.summary, label_name=result.genre or None)
@@ -83,7 +84,7 @@ for target in config.targets:
     elif not results:
         logger.info("送信する要約が無いため、メール送信をスキップしました: %s", name)
     else:
-        msg = ''.join(result.summary + '<hr>' for result in results)
+        msg = ''.join(result.summary + '<hr>' for result, _ in results)
         for address in target.recipients:
             # メール送信
             send_email(address, name, msg)
@@ -107,18 +108,28 @@ for group in config.groups:
         logger.info("送信する要約が無いため、メール送信をスキップしました: %s", group.name)
         continue
 
-    summaries = [result.summary for result in results]
+    summaries = [result.summary for result, _ in results]
     # 要約が1件ならまとめる必要が無いので、ダイジェストは作らない
     digest = synthesize_summaries(summaries, group.focus, config.model, config.fallback_model) if len(summaries) > 1 else None
 
+    # 件名：ダイジェストで生成したタイトル。無ければ（要約が1件なら）動画タイトル、それも無ければグループ名
+    if digest and digest.title:
+        subject = digest.title
+    elif len(results) == 1:
+        subject = results[0][0].title
+    else:
+        subject = group.name
+
     msg = ''
     if digest:
-        msg += f'<h1>ダイジェスト</h1>{digest}<hr><h1>個別の要約</h1>'
+        # 動画のリンクはGeminiに書かせず、ダイジェストの下に一覧で付ける
+        sources = ''.join(f'<li><a href="{html.escape(link, quote=True)}">{html.escape(result.title)}</a></li>' for result, link in results)
+        msg += f'<h1>ダイジェスト</h1>{digest.digest}<h2>参照した動画</h2><ul>{sources}</ul><hr><h1>個別の要約</h1>'
     elif len(summaries) > 1:
         msg += '<p>ダイジェストの生成に失敗したため、個別の要約のみを送ります。</p><hr>'
     msg += ''.join(summary + '<hr>' for summary in summaries)
 
     for address in group.recipients:
         # メール送信
-        send_email(address, group.name, msg)
+        send_email(address, subject, msg)
         print(f'send_mail: {address}')

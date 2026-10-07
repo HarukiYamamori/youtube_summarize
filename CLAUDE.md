@@ -34,15 +34,15 @@ Gmail OAuthでは`credentials.json`（クライアントシークレット）を
 - **単一動画のURL**（`/watch?`を含む）：ダウンロード → 要約。**動画1本につきメール1通**を送る。件名はYouTubeの動画タイトル（取れなければGeminiが生成したタイトル）で、判定された`genre`をGmailラベルとして付ける。
 - **チャンネルのURL**：`crawl_videos.fetch_channel_data(f"{url}/videos", new_video_hours, max_check_videos)`が、yt-dlpで動画一覧（新しい順に最大`max_check_videos`本）を取得し、1本ずつ詳細を取って公開日時（`timestamp`）が直近`new_video_hours`時間以内のものを残す。期間外の動画が出た時点で打ち切る。メンバー限定（`availability`）、配信中・公開前（`live_status`）、情報を取得できない動画はスキップする。そのチャンネルの要約をすべて`<hr>`でつなぎ、**チャンネルごとにメール1通**として送る。件名はチャンネル名で、ラベルは付かない。送る要約が1件も無ければ送信しない。
 
-`config.targets`の後に`config.groups`を処理する。グループ内の各URLを上と同じ`summarize_target`で要約し（URL単位の例外はログに出してスキップ）、要約が2件以上なら`audio_transcript.synthesize_summaries(summaries, focus, model)`で各要約のHTMLテキストだけからトピック別ダイジェストを作る（音声は再アップロードしない）。メールは**グループごとに1通**で、件名はグループの`name`、本文は「ダイジェスト → 個別の要約」の順。ダイジェスト生成に失敗した場合は個別の要約だけを送る。
+`config.targets`の後に`config.groups`を処理する。グループ内の各URLを上と同じ`summarize_target`で要約し（URL単位の例外はログに出してスキップ）、要約が2件以上なら`audio_transcript.synthesize_summaries(summaries, focus, model)`で各要約のHTMLテキストだけからトピック別ダイジェストと全体のタイトルを作る（音声は再アップロードしない）。メールは**グループごとに1通**で、件名はダイジェストで生成したタイトル（ダイジェストが無ければ、要約1件ならその動画タイトル、それ以外はグループの`name`）。本文は「ダイジェスト → 参照した動画の一覧 → 個別の要約」の順で、動画の一覧はGeminiに書かせずコード側で組み立てる。ダイジェスト生成に失敗した場合は個別の要約だけを送る。
 
 ダウンロードや要約に失敗した動画は、ログに出してスキップする（`main.summarize_video`がNoneを返す）。各ターゲットの処理が終わるたびに、`file_handler.delete_all_files()`で`data/`を空にする。
 
 各モジュールの役割:
-- `audio_downloader.download_audio(url)`は`data/<video_id>.mp3`に保存し、`(title, path)`を返す。まずyt-dlpで試し、失敗したらpytubefixにフォールバックする。例外が出なくても出力ファイルが無ければ失敗として扱う。タイトルはダウンロードしたライブラリが返した情報から取る。
+- `audio_downloader.download_audio(url)`は`data/<video_id>.mp3`に保存し、`(title, path)`を返す。まずyt-dlpで試し（YouTubeがときどき403を返すため、5秒空けて最大3回）、すべて失敗したらpytubefixにフォールバックする。例外が出なくても出力ファイルが無ければ失敗として扱う。タイトルはダウンロードしたライブラリが返した情報から取る。
 - `audio_transcript.summarize_audio(path, title, link, model)`は`google-genai` SDKを使い、音声ファイルをアップロードして、**1回の呼び出しで**Pydanticの`Result(title, summary, genre)`に沿った構造化JSONを要求する（文字起こしは別に行わない）。`summary`はHTMLで、`genre`はプロンプト内に固定で並べた日本語ジャンルのいずれか。アップロードしたファイルは`finally`で削除する。応答が空・JSONでない場合は、失敗した旨のHTMLを入れた`Result`を返す（メールにはその内容が載る）。
 - `gmail_sender.send_email(to, name, body, label_name=None)`は件名を`【YouTube Summary】{name}`にする。メールを送信したあと`messages.modify`でラベルを付ける（ラベルが存在しなければ先に作成する）。エラーはログに出すだけで、例外として投げない。
-- Geminiの呼び出しはすべて`audio_transcript._generate_content`を通る。5xx・429・タイムアウトで失敗した場合は、`fallback_model`で1回だけやり直す（`fallback_model`が空、または`model`と同じ場合はやり直さない）。混雑時にリクエストが止まったままにならないよう、クライアントには1リクエスト10分のタイムアウトを設定している。
+- Geminiの呼び出しはすべて`audio_transcript._generate_content`を通る。5xx・429・タイムアウトで失敗した場合は`fallback_model`でやり直し、両方失敗したら60秒・120秒と待って「`model` → `fallback_model`」を最大3巡繰り返す（`GENERATE_ROUNDS`・`ROUND_WAIT_SECONDS`。`fallback_model`が空、または`model`と同じ場合は`model`だけを繰り返す）。それ以外のエラーはやり直さない。混雑時にリクエストが止まったままにならないよう、クライアントには1リクエスト10分のタイムアウトを設定している。
 - 設定の既定値（モデル名`gemini-3-flash-preview`、フォールバック`gemini-flash-latest`、24時間、15本）は`config.py`の`DEFAULT_*`にある。
 
 ## 注意点

@@ -1,4 +1,5 @@
 import os
+import time
 import httpx
 from google import genai
 from google.genai import errors
@@ -33,15 +34,36 @@ def _is_retryable(e):
     return isinstance(e, errors.ClientError) and e.code == 429
 
 
+# 混雑はしばらく待つと解消することが多いので、「model → fallback_model」の一巡を、待ち時間を空けて最大この回数まで繰り返す
+GENERATE_ROUNDS = 3
+# 一巡がすべて失敗したときの待ち時間（秒）。n巡目の後は ROUND_WAIT_SECONDS * n 秒待つ
+ROUND_WAIT_SECONDS = 60
+
+
 def _generate_content(contents, config, model, fallback_model):
-    """generate_contentを呼ぶ。混雑などで失敗した場合は、fallback_modelで1回だけやり直す"""
-    try:
-        return client.models.generate_content(model=model, contents=contents, config=config)
-    except Exception as e:
-        if not fallback_model or fallback_model == model or not _is_retryable(e):
-            raise
-        logger.warning(f"{model}で失敗したため、{fallback_model}でやり直します: {e}")
-        return client.models.generate_content(model=fallback_model, contents=contents, config=config)
+    """generate_contentを呼ぶ。混雑などで失敗した場合は、fallback_modelでやり直す
+
+    model・fallback_modelの両方が失敗した場合は、待ち時間を空けて最大GENERATE_ROUNDS巡まで繰り返す。
+    混雑以外のエラー（400など）は、やり直さずにそのまま送出する。
+    """
+    models = [model] if not fallback_model or fallback_model == model else [model, fallback_model]
+    for round_no in range(1, GENERATE_ROUNDS + 1):
+        for i, m in enumerate(models):
+            try:
+                return client.models.generate_content(model=m, contents=contents, config=config)
+            except Exception as e:
+                if not _is_retryable(e):
+                    raise
+                last_error = e
+                if i + 1 < len(models):
+                    logger.warning(f"{m}で失敗したため、{models[i + 1]}でやり直します: {e}")
+                else:
+                    logger.warning(f"{m}で失敗しました（{round_no}/{GENERATE_ROUNDS}巡目）: {e}")
+        if round_no < GENERATE_ROUNDS:
+            wait = ROUND_WAIT_SECONDS * round_no
+            logger.info(f"{wait}秒待ってからやり直します")
+            time.sleep(wait)
+    raise last_error
 
 
 class Result(BaseModel):
@@ -166,27 +188,29 @@ def _summarize(audio_file, title, link, model, fallback_model):
 
 
 class Digest(BaseModel):
+    title: str = Field(description="全体の内容を表すタイトル")
     digest: str = Field(description="HTML形式のダイジェスト本文")
 
 
 def synthesize_summaries(summaries, focus="", model=DEFAULT_MODEL, fallback_model=DEFAULT_FALLBACK_MODEL):
-    """複数の動画の要約（HTML）を、トピック別の1つのダイジェスト（HTML）にまとめる。失敗した場合はNoneを返す"""
+    """複数の動画の要約（HTML）を、トピック別の1つのダイジェスト（HTML）とタイトルにまとめる。失敗した場合はNoneを返す"""
     joined = "\n\n".join(f"<!-- 要約{i} -->\n{summary}" for i, summary in enumerate(summaries, 1))
     focus_text = f"\n        【まとめ方の指示】\n        {focus}\n" if focus else ""
 
     prompt = f"""
         以下は複数のYouTube動画の要約（HTML）です。これらを横断して、1つのダイジェストにまとめ、HTML形式で出力してください。
+        あわせて、ダイジェスト全体の内容を表すタイトル（メールの件名になる。30文字程度）を付けてください。
 
         【まとめ方】
         - 動画単位ではなく、トピック単位で整理してください。
         - 複数の動画で同じ話題を扱っている場合は、1つのトピックに統合してください。
         - 重要度の高いトピックから順に並べてください。
         - 動画によって見解や伝え方が異なる点があれば、その違いも記載してください。
-        - 各トピックの末尾に、出典となった動画のリンクを付けてください（各要約の<h1>内のリンクとタイトルを使う）。
         - 要約に書かれていない情報を補ったり、推測したりしないでください。
 {focus_text}
         【HTMLの要件】
         - トピックの見出しは<h2>、内容は<ul><li>または<p>を使用
+        - 動画へのリンクや出典は付けない（動画の一覧は別に付ける）
         - マークダウン記法は使用しない
         - 純粋なHTMLのみを出力
 
@@ -196,7 +220,6 @@ def synthesize_summaries(summaries, focus="", model=DEFAULT_MODEL, fallback_mode
             <li>ポイント1</li>
             <li>ポイント2</li>
         </ul>
-        <p class="source">出典: <a href="動画のリンク">動画タイトル</a></p>
 
         【要約一覧】
         {joined}
@@ -212,12 +235,13 @@ def synthesize_summaries(summaries, focus="", model=DEFAULT_MODEL, fallback_mode
             model,
             fallback_model,
         )
-        digest = Digest(**json.loads(response.text)).digest
+        digest = Digest(**json.loads(response.text))
     except Exception as e:
         logger.error(f"ダイジェストの生成に失敗しました: {e}")
         return None
 
-    logger.info(f"Digest result:\n{digest}")
+    logger.info(f"Digest title: {digest.title}")
+    logger.info(f"Digest result:\n{digest.digest}")
     return digest
 
 
